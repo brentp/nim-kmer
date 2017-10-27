@@ -65,7 +65,7 @@ proc reverse_add*(rencoded: var uint64, base: char, L: int) {.inline.} =
   tmp = tmp shl (L*2-2)
   rencoded = rencoded or tmp
 
-iterator slide(s:string, k: int): uint64 {.inline.} =
+iterator slide*(s:string, k: int): uint64 {.inline.} =
   ## given a string (DNA seq) yield each possible kmer where
   ## the min of the foward and reverse complement is used.
   var f = s[0..<k].encode()
