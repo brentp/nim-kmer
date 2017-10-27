@@ -6,7 +6,6 @@
 
 type kmer* = string
 ## kmer is just a string.
-##
 
 # taken from squeakr
 template BITMASK(nbits: untyped): untyped =
@@ -66,6 +65,21 @@ proc reverse_add*(rencoded: var uint64, base: char, L: int) {.inline.} =
   tmp = tmp shl (L*2-2)
   rencoded = rencoded or tmp
 
+iterator slide(s:string, k: int): uint64 {.inline.} =
+  ## given a string (DNA seq) yield each possible kmer where
+  ## the min of the foward and reverse complement is used.
+  var f = s[0..<k].encode()
+  var r = f.reverse_complement(k)
+  for i in k..s.high:
+    yield min(f, r)
+
+    var base:char = s[i]
+    f.forward_add(base, k)
+    r.reverse_add(base, k)
+
+  yield min(f, r)
+
+
 when isMainModule:
   import random
   import times
@@ -112,3 +126,21 @@ when isMainModule:
        quit(2)
 
   echo cpuTime() - t
+
+  s = "TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG"
+  var space = ""
+  var kx1 = new_string(10)
+  var kx2 = new_string(10)
+  var i = 0
+  for u in s.slide(10):
+    echo s
+    u.decode(kx1)
+    u.reverse_complement(10).decode(kx2)
+    assert kx1 == s[i..<(i+10)] or kx2 == s[i..<(i+10)]
+    if kx1 == s[i..<(i+10)]:
+      echo space & kx1
+    else:
+      echo space & kx2
+    space &= " "
+    echo ""
+    i += 1
