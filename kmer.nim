@@ -1,16 +1,17 @@
-## this module provides functions to encode and decode DNA
-## strings (kmers) into uint64's, to reverse complement the
-## encoded values, and to add bases to the right or left encode
-## withtout decoding.
+## this module provides functions to encode and decode DNA strings (kmers) into uint64's
+## to reverse complement the encoded values (in-place), and to add bases to the right or
+## left end withtout decoding.
 ## Any characters other than AaCcTtGg are encoded as A
+## The slide iterator yields each encoded (min) kmer along a given input string.
 
 type kmer* = string
 ## kmer is just a string.
 
-# taken from squeakr
 template BITMASK(nbits: untyped): untyped =
+  # taken from squeakr
   (if (nbits) == 64: 0xFFFFFFFFFFFFFFFF'i64 else: (1 shl (nbits)) - 1)
 
+# convert a char to its 01234 encoding
 const lookup: array[117, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -50,6 +51,11 @@ proc reverse_complement*(encoded: uint64, L: int): uint64 {.inline.} =
     e = e shr 2
     result = (result or base) shl 2
   result = result shr 2
+
+proc mincode*(k: kmer): uint64 {.inline.} =
+  ## encode a string into the min of itself and its reverse complement
+  let f = k.encode()
+  return min(f, f.reverse_complement(k.len))
 
 proc forward_add*(encoded: var uint64, base: char, L: int) {.inline.} =
   ## drop the first base from an encoded kmer of length L and add a new one.
@@ -114,6 +120,7 @@ when isMainModule:
     quit(1)
 
 
+  echo "testing round-trip on random kmers"
   for i in 0..2000000:
     shuffle(k)
     e = k.encode()
