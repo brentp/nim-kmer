@@ -7,10 +7,6 @@
 type kmer* = string
 ## kmer is just a string.
 
-template BITMASK(nbits: untyped): untyped =
-  # taken from squeakr
-  (if (nbits) == 64: 0xFFFFFFFFFFFFFFFF'i64 else: (1 shl (nbits)) - 1)
-
 # convert a char to its 01234 encoding
 const lookup: array[117, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -33,7 +29,7 @@ const str = "CATGN"
 proc decode*(e: uint64, k: var kmer) {.inline.} =
   ## decode a string from a uint64 into k. the length
   ## of k determines how much is decoded
-  var 
+  var
     base: int
     i = k.len
     L = i
@@ -60,7 +56,7 @@ proc mincode*(k: kmer): uint64 {.inline.} =
 proc forward_add*(encoded: var uint64, base: char, L: int) {.inline.} =
   ## drop the first base from an encoded kmer of length L and add a new one.
   ## useful for sliding along a sequence.
-  encoded = (encoded shl 2) and uint64(BITMASK(2 * L))
+  encoded = (encoded shl 2) and uint64((1 shl (2*L)) - 1)
   encoded = (encoded or lookup[int(base)])
 
 proc reverse_add*(rencoded: var uint64, base: char, L: int) {.inline.} =
