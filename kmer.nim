@@ -81,6 +81,14 @@ iterator slide*(s:string, k: int): uint64 {.inline.} =
 
   yield min(f, r)
 
+iterator dists*(s: string, k:int): auto {.inline.} =
+  ## yield each (min) encoded k-mer and its distance from the closest end of the read.
+  var i = 0
+  var m = s.len - k
+  for x in s.slide(k):
+    yield (min(i, m - i), x)
+    inc i
+
 
 when isMainModule:
   import random
@@ -115,6 +123,8 @@ when isMainModule:
     echo "got ", s
     quit(1)
 
+  for i, s in pairs("TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG"):
+      echo i, s
 
   echo "testing round-trip on random kmers"
   for i in 0..2000000:
@@ -135,15 +145,15 @@ when isMainModule:
   var kx1 = new_string(10)
   var kx2 = new_string(10)
   var i = 0
-  for u in s.slide(10):
+  for d, u in s.dists(10):
     echo s
     u.decode(kx1)
     u.reverse_complement(10).decode(kx2)
     assert kx1 == s[i..<(i+10)] or kx2 == s[i..<(i+10)]
     if kx1 == s[i..<(i+10)]:
-      echo space & kx1
+      echo space & kx1, " ", d
     else:
-      echo space & kx2
+      echo space & kx2, " ", d
     space &= " "
     echo ""
     i += 1
