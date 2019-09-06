@@ -8,20 +8,20 @@ type kmer* = string
 ## kmer is just a string.
 
 # convert a char to its 01234 encoding
-const lookup: array[117, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+const lookup: array[123, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3,
-       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2]
+       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1]
 
 proc encode*(k: kmer): uint64 {.inline.} =
   ## encode a string into a uint64
-  if len(k) > 31:
-    stderr.write_line("[kmer] can't encode kmer longer than 31")
-    quit(1)
+  when not defined(danger):
+    if len(k) > 31:
+      quit "[kmer] can't encode kmer longer than 31"
   for c in k:
-    result = (result or lookup[int(c)]) shl 2
+    result = (result or lookup[cast[uint8](c)]) shl 2
   result = result shr 2
 
 const str = "CATGN"
@@ -36,6 +36,17 @@ proc decode*(e: uint64, k: var kmer) {.inline.} =
   while i > 0:
     base = int((e shr (i * 2  - 2)) and 3'u64)
     k[L-i] = str[base]
+    i -= 1
+
+proc decode*(e: uint64, k: var array[6, char], length: int) {.inline.} =
+  ## decode a string from a uint64 into k. the length
+  ## of k determines how much is decoded
+  var
+    base: int
+    i = length
+  while i > 0:
+    base = int((e shr (i * 2  - 2)) and 3'u64)
+    k[length-i] = str[base]
     i -= 1
 
 proc reverse_complement*(encoded: uint64, L: int): uint64 {.inline.} =
@@ -139,6 +150,7 @@ when isMainModule:
        quit(2)
 
   echo cpuTime() - t
+  #[
 
   s = "TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG"
   var space = ""
@@ -157,3 +169,4 @@ when isMainModule:
     space &= " "
     echo ""
     i += 1
+  ]#
