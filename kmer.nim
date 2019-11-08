@@ -85,12 +85,22 @@ iterator slide*(s:string, k: int): uint64 {.inline.} =
   var r = f.reverse_complement(k)
   for i in k..s.high:
     yield min(f, r)
-
-    var base:char = s[i]
+    let base:char = s[i]
     f.forward_add(base, k)
     r.reverse_add(base, k)
 
   yield min(f, r)
+
+iterator slide_forward*(s:string, k: int): uint64 {.inline.} =
+  ## given a string (DNA seq) yield each possible kmer where
+  ## the min of the foward and reverse complement is used.
+  var f = s[0..<k].encode()
+  for i in k..s.high:
+    yield f
+    let base:char = s[i]
+    f.forward_add(base, k)
+
+  yield f
 
 iterator dists*(s: string, k:int): auto {.inline.} =
   ## yield each (min) encoded k-mer and its distance from the closest end of the read.
