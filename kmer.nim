@@ -64,6 +64,12 @@ proc mincode*(k: kmer): uint64 {.inline.} =
   let f = k.encode()
   return min(f, f.reverse_complement(k.len))
 
+proc right*(encoded: uint64, L:int): uint64 {.inline.} =
+  (encoded) and uint64((1 shl (2*L)) - 1)
+
+proc left*(encoded: uint64, L:int): uint64 {.inline.} =
+  encoded shr 2
+
 proc forward_add*(encoded: var uint64, base: char, L: int) {.inline.} =
   ## drop the first base from an encoded kmer of length L and add a new one.
   ## useful for sliding along a sequence.
@@ -148,7 +154,7 @@ when isMainModule:
       echo i, s
 
   echo "testing round-trip on random kmers"
-  for i in 0..2000000:
+  for i in 0..200000:
     shuffle(k)
     e = k.encode()
     e.decode(s)
@@ -160,6 +166,22 @@ when isMainModule:
        quit(2)
 
   echo cpuTime() - t
+
+
+  var base_str = "CCACGTACTGA"
+  var skm = base_str.encode
+  var R = skm.right(base_str.len - 1)
+  var L = skm.left(base_str.len - 1)
+  var right_str = newString(base_str.len - 1)
+  R.decode(right_str)
+  echo "base:", base_str
+  echo "right:", right_str
+  var left_str = newString(base_str.len - 1)
+  L.decode(left_str)
+  echo "left:", left_str
+  doAssert left_str == base_str[0..<base_str.high]
+  doAssert right_str == base_str[1..base_str.high]
+
   #[
 
   s = "TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG"
