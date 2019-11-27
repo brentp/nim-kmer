@@ -65,7 +65,7 @@ proc mincode*(k: kmer): uint64 {.inline.} =
   return min(f, f.reverse_complement(k.len))
 
 proc right*(encoded: uint64, L:int): uint64 {.inline.} =
-  (encoded) and uint64((1 shl (2*L)) - 1)
+  (encoded) and uint64((1 shl (2*(L-1))) - 1)
 
 proc left*(encoded: uint64, L:int): uint64 {.inline.} =
   encoded shr 2
@@ -170,8 +170,8 @@ when isMainModule:
 
   var base_str = "CCACGTACTGA"
   var skm = base_str.encode
-  var R = skm.right(base_str.len - 1)
-  var L = skm.left(base_str.len - 1)
+  var R = skm.right(base_str.len)
+  var L = skm.left(base_str.len)
   var right_str = newString(base_str.len - 1)
   R.decode(right_str)
   echo "base:", base_str
@@ -182,6 +182,8 @@ when isMainModule:
   doAssert left_str == base_str[0..<base_str.high]
   doAssert right_str == base_str[1..base_str.high]
 
+  block:
+    var s = "ACTGGC"
   #[
 
   s = "TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG"
