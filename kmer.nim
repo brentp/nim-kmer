@@ -105,8 +105,27 @@ iterator slide_forward*(s:string, k: int): uint64 {.inline.} =
     yield f
     let base:char = s[i]
     f.forward_add(base, k)
-
   yield f
+
+
+proc sum(m: seq[bool]): int {.inline.} =
+  for v in m: result += v.int
+
+iterator slide_forward_mask*(s:string, k: int, mask: seq[bool]): uint64 {.inline.} =
+  ## take a boolean mask choosing which bases to extract. this is less
+  ## efficient than slide_forward, bt allows sparse kmers
+  assert k == sum(mask)
+  var sequence = newStringOfCap(k)
+  for i, v in mask:
+    if v: sequence.add(s[i])
+
+  var f = sequence.encode()
+  yield f
+  for j in 1..s.high - mask.high:
+    for i, v in mask:
+      if v: f.forward_add(s[i + j], k)
+    yield f
+
 
 iterator dists*(s: string, k:int): auto {.inline.} =
   ## yield each (min) encoded k-mer and its distance from the closest end of the read.
@@ -204,3 +223,23 @@ when isMainModule:
     echo ""
     i += 1
   ]#
+
+  block:
+
+    var s = "ACACACACACT"
+    var k = 3
+    var mask = @[true, false, true, false, true]
+    echo "slide mask:", s, " mask:", mask
+    for v in s.slide_forward_mask(k, mask):
+      var n = newString(k)
+      v.decode(n)
+      echo n
+
+    mask = @[true, true, false, false, false, true]
+    echo "mask:", mask
+    for v in s.slide_forward_mask(k, mask):
+      var n = newString(k)
+      v.decode(n)
+      echo n
+
+
