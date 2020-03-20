@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.2"
+version       = "0.2.3"
 author        = "Brent Pedersen"
 description   = "dna kmer ops for nim"
 license       = "MIT"

@@ -49,38 +49,39 @@ proc decode*(e: uint64, k: var array[6, char], length: int) {.inline.} =
     k[length-i] = str[base]
     i -= 1
 
-proc reverse_complement*(encoded: uint64, L: int): uint64 {.inline.} =
-  ## reverse complement an encoded sequence where L is the kmer length.
-  var e = encoded
-  var base: uint8
-  for i in 0..<L:
-    base = 3'u8 - uint8(e and 3)
-    e = e shr 2
-    result = (result or base) shl 2
-  result = result shr 2
+proc reverse_complement*(encoded: uint64, L:int|uint64): uint64 {.inline.} =
+  ## fast reverse complement of encoded value
+  # from Zev: https://www.biostars.org/p/113640/#424280
+  result = not encoded
+  result = ((result shr 2'u64 and 0x3333333333333333'u64) or (result and 0x3333333333333333'u64) shl 2'u64);
+  result = ((result shr 4'u64 and 0x0F0F0F0F0F0F0F0F'u64) or (result and 0x0F0F0F0F0F0F0F0F'u64) shl 4'u64);
+  result = ((result shr 8'u64 and 0x00FF00FF00FF00FF'u64) or (result and 0x00FF00FF00FF00FF'u64) shl 8'u64);
+  result = ((result shr 16'u64 and 0x0000FFFF0000FFFF'u64) or (result and 0x0000FFFF0000FFFF'u64) shl 16'u64);
+  result = ((result shr 32'u64 and 0x00000000FFFFFFFF'u64) or (result and 0x00000000FFFFFFFF'u64) shl 32'u64);
+  return (result shr (2 * (32 - L)));
 
 proc mincode*(k: kmer): uint64 {.inline.} =
   ## encode a string into the min of itself and its reverse complement
   let f = k.encode()
   return min(f, f.reverse_complement(k.len))
 
-proc right*(encoded: uint64, L:int): uint64 {.inline.} =
-  (encoded) and uint64((1 shl (2*(L-1))) - 1)
+proc right*(encoded: uint64, L:uint64): uint64 {.inline.} =
+  (encoded) and ((1'u64 shl (2'u64*(L-1'u64))) - 1'u64)
 
-proc left*(encoded: uint64, L:int): uint64 {.inline.} =
+proc left*(encoded: uint64, L:uint64): uint64 {.inline.} =
   encoded shr 2
 
 proc forward_add*(encoded: var uint64, base: char, L: int) {.inline.} =
   ## drop the first base from an encoded kmer of length L and add a new one.
   ## useful for sliding along a sequence.
   encoded = (encoded shl 2) and uint64((1 shl (2*L)) - 1)
-  encoded = (encoded or lookup[int(base)])
+  encoded = (encoded or lookup[cast[int](base)])
 
 proc reverse_add*(rencoded: var uint64, base: char, L: int) {.inline.} =
   ## drop the last base from a rev-comped kmer of length L and add a new
   ## complemented base at the start.
   rencoded = (rencoded shr 2)
-  var tmp = 3'u64 - lookup[int(base)]
+  var tmp = 3'u64 - lookup[cast[int](base)]
   tmp = tmp shl (L*2-2)
   rencoded = rencoded or tmp
 
@@ -145,7 +146,6 @@ when isMainModule:
 
   var k = "CTCCAGCCGGACGCGGCCGGCAGCAGACGCA"
   var s = k
-  echo k.len
   var e = k.encode()
   e.decode(s)
   var rc = e.reverse_complement(k.len)
@@ -169,28 +169,69 @@ when isMainModule:
     echo "got ", s
     quit(1)
 
-  for i, s in pairs("TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG"):
-      echo i, s
+  #for i, s in pairs("TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG"):
+  #    echo i, s
+  k = k[0..<25]
+  s = k
+  proc reverse_complement_old*(encoded: uint64, L: int): uint64 {.inline.} =
+    ## reverse complement an encoded sequence where L is the kmer length.
+    var e = encoded
+    var base: uint8
+    for i in 0..<L:
+      base = 3'u8 - uint8(e and 3)
+      e = e shr 2
+      result = (result or base) shl 2
+    result = result shr 2
 
   echo "testing round-trip on random kmers"
   for i in 0..200000:
     shuffle(k)
     e = k.encode()
     e.decode(s)
-    rc = e.reverse_complement(s.len)
+    rc = e.reverse_complement_old(s.len)
+    var rc2 = e.reverse_complement(s.len)
     if s != k:
        echo "error:", i
        echo "error:", k
        echo "error:", s
        quit(2)
+    if rc != rc2:
+      echo "error:", i, " k:", k, " s:", s
 
   echo cpuTime() - t
+
+  echo "testing old reverse_complement"
+  let ntimes = 10_000_000
+  var n = 0
+  var encs = newSeq[uint64](ntimes)
+  for i in 0..<ntimes:
+    shuffle(k)
+    encs.add(k.encode())
+
+  var old = newSeqOfCap[uint64](ntimes)
+  t = cpuTime()
+  for e in encs:
+    rc = e.reverse_complement_old(s.len)
+    if rc >= 1000000000:
+      n.inc
+  # old.add(rc)
+  echo "time:", cpuTime() - t, " n:", n
+
+  echo "testing new reverse_complement"
+  t = cpuTime()
+  n = 0
+  for i, e in encs:
+    rc = e.reverse_complement(s.len)
+    if rc >= 1000000000:
+      n.inc
+  #doAssert old[i] == rc
+  echo "time:", cpuTime() - t, " n:", n
 
 
   var base_str = "CCACGTACTGA"
   var skm = base_str.encode
-  var R = skm.right(base_str.len)
-  var L = skm.left(base_str.len)
+  var R = skm.right(base_str.len.uint64)
+  var L = skm.left(base_str.len.uint64)
   var right_str = newString(base_str.len - 1)
   R.decode(right_str)
   echo "base:", base_str
@@ -224,6 +265,7 @@ when isMainModule:
     i += 1
   ]#
 
+
   block:
 
     var s = "ACACACACACT"
@@ -243,3 +285,11 @@ when isMainModule:
       echo n
 
 
+
+  block:
+    var s = "ACACACACACT"
+    var e = s.encode
+    var d = newString(s.len)
+    (not e).decode(d)
+    echo s
+    echo d
