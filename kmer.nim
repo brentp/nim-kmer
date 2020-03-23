@@ -35,17 +35,6 @@ proc decode*(e: uint64, k: var string) {.inline.} =
     k[L-i] = str[base]
     i -= 1
 
-proc decode*(e: uint64, k: var array[6, char], length: int) {.inline.} =
-  ## decode a string from a uint64 into k. the length
-  ## of k determines how much is decoded
-  var
-    base: int
-    i = length
-  while i > 0:
-    base = int((e shr (i * 2  - 2)) and 3'u64)
-    k[length-i] = str[base]
-    i -= 1
-
 proc reverse_complement*(encoded: uint64, L:int|uint64): uint64 {.inline.} =
   ## fast reverse complement of encoded value
   # from Zev: https://www.biostars.org/p/113640/#424280
