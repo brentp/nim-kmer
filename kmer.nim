@@ -4,9 +4,6 @@
 ## Any characters other than AaCcTtGg are encoded as A
 ## The slide iterator yields each encoded (min) kmer along a given input string.
 
-type kmer* = string
-## kmer is just a string.
-
 # convert a char to its 01234 encoding
 const lookup: array[123, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -15,7 +12,7 @@ const lookup: array[123, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
        1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3,
        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1]
 
-proc encode*(k: kmer): uint64 {.inline.} =
+proc encode*(k: string): uint64 {.inline.} =
   ## encode a string into a uint64
   when not defined(danger):
     if len(k) > 31:
@@ -26,7 +23,7 @@ proc encode*(k: kmer): uint64 {.inline.} =
 
 const str = "CATGN"
 
-proc decode*(e: uint64, k: var kmer) {.inline.} =
+proc decode*(e: uint64, k: var string) {.inline.} =
   ## decode a string from a uint64 into k. the length
   ## of k determines how much is decoded
   var
@@ -60,7 +57,7 @@ proc reverse_complement*(encoded: uint64, L:int|uint64): uint64 {.inline.} =
   result = ((result shr 32'u64 and 0x00000000FFFFFFFF'u64) or (result and 0x00000000FFFFFFFF'u64) shl 32'u64);
   return (result shr (2 * (32 - L)));
 
-proc mincode*(k: kmer): uint64 {.inline.} =
+proc mincode*(k: string): uint64 {.inline.} =
   ## encode a string into the min of itself and its reverse complement
   let f = k.encode()
   return min(f, f.reverse_complement(k.len))
@@ -212,7 +209,7 @@ when isMainModule:
   t = cpuTime()
   for e in encs:
     rc = e.reverse_complement_old(s.len)
-    if rc >= 1000000000:
+    if rc >= 65219000000000'u64:
       n.inc
   # old.add(rc)
   echo "time:", cpuTime() - t, " n:", n
@@ -222,7 +219,7 @@ when isMainModule:
   n = 0
   for i, e in encs:
     rc = e.reverse_complement(s.len)
-    if rc >= 1000000000:
+    if rc >= 65219000000000'u64:
       n.inc
   #doAssert old[i] == rc
   echo "time:", cpuTime() - t, " n:", n
