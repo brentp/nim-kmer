@@ -46,21 +46,10 @@ proc reverse_complement*(encoded: uint64, L:int|uint64): uint64 {.inline.} =
   result = ((result shr 32'u64 and 0x00000000FFFFFFFF'u64) or (result and 0x00000000FFFFFFFF'u64) shl 32'u64);
   return (result shr (2 * (32 - L)));
 
-proc mincode*(k: string): uint64 {.inline.} =
-  ## encode a string into the min of itself and its reverse complement
-  let f = k.encode()
-  return min(f, f.reverse_complement(k.len))
-
-proc right*(encoded: uint64, L:uint64): uint64 {.inline.} =
-  (encoded) and ((1'u64 shl (2'u64*(L-1'u64))) - 1'u64)
-
-proc left*(encoded: uint64, L:uint64): uint64 {.inline.} =
-  encoded shr 2
-
 proc forward_add*(encoded: var uint64, base: char, L: int) {.inline.} =
   ## drop the first base from an encoded kmer of length L and add a new one.
   ## useful for sliding along a sequence.
-  encoded = (encoded shl 2) and uint64((1 shl (2*L)) - 1)
+  encoded = (encoded shl 2) and ((1'u64 shl (2*L)) - 1)
   encoded = (encoded or lookup[cast[int](base)])
 
 proc reverse_add*(rencoded: var uint64, base: char, L: int) {.inline.} =
@@ -71,18 +60,27 @@ proc reverse_add*(rencoded: var uint64, base: char, L: int) {.inline.} =
   tmp = tmp shl (L*2-2)
   rencoded = rencoded or tmp
 
-iterator slide*(s:string, k: int): uint64 {.inline.} =
+type stranded* = tuple[enc:uint64, min_complement:uint8]
+
+proc mincode*(k: string): stranded {.inline.} =
+  ## encode a string into the min of itself and its reverse complement
+  let f = k.encode()
+  let r = f.reverse_complement(k.len)
+  return (min(f, r), cast[uint8](r < f))
+
+iterator slide*(s:string, k: int): stranded {.inline.} =
   ## given a string (DNA seq) yield each possible kmer where
   ## the min of the foward and reverse complement is used.
   var f = s[0..<k].encode()
   var r = f.reverse_complement(k)
+  var base:char
   for i in k..s.high:
-    yield min(f, r)
-    let base:char = s[i]
+    yield (min(f, r), cast[uint8](r < f))
+    base = s[i]
     f.forward_add(base, k)
     r.reverse_add(base, k)
+  yield (min(f, r), cast[uint8](r < f))
 
-  yield min(f, r)
 
 iterator slide_forward*(s:string, k: int): uint64 {.inline.} =
   ## given a string (DNA seq) yield each possible kmer where
@@ -214,20 +212,6 @@ when isMainModule:
   echo "time:", cpuTime() - t, " n:", n
 
 
-  var base_str = "CCACGTACTGA"
-  var skm = base_str.encode
-  var R = skm.right(base_str.len.uint64)
-  var L = skm.left(base_str.len.uint64)
-  var right_str = newString(base_str.len - 1)
-  R.decode(right_str)
-  echo "base:", base_str
-  echo "right:", right_str
-  var left_str = newString(base_str.len - 1)
-  L.decode(left_str)
-  echo "left:", left_str
-  doAssert left_str == base_str[0..<base_str.high]
-  doAssert right_str == base_str[1..base_str.high]
-
   block:
     var s = "ACTGGC"
   #[
@@ -279,3 +263,22 @@ when isMainModule:
     (not e).decode(d)
     echo s
     echo d
+
+
+  block:
+    var s = "ACTGACGGACCCGAGGGCACCCGAGGCCTTTTTTTTGCGGGAGGAGGAGACTGACTGCGGGAGGAGGAGACTGACTGCGGGAGGAGGAGACTGACTGCGGGAGGAGGAG"
+    var t = cpuTime()
+
+    var lastS = 0'u64
+    for i in 0..600_000:
+      var S = 0'u64
+      for k in s.slide(25):
+        S += k.enc mod 15
+      if i > 0:
+        doAssert S == lastS
+      else:
+        lastS = S
+        echo lastS
+        var lastS = S
+
+    echo "slide time:",  cpuTime() - t
