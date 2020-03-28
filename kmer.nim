@@ -5,12 +5,31 @@
 ## The slide iterator yields each encoded (min) kmer along a given input string.
 
 # convert a char to its 01234 encoding
-const lookup: array[123, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-       1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-       1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3,
-       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1]
+#const lookup: array[123, uint64] = [1'u64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+#       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+#       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+#       1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+#       1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3,
+#       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1]
+
+const lookup: array[256, uint64] = [
+  0'u64, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  3, 3, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  3, 3, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
+  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
+]
 
 proc encode*(k: string): uint64 {.inline.} =
   ## encode a string into a uint64
@@ -21,7 +40,7 @@ proc encode*(k: string): uint64 {.inline.} =
     result = (result or lookup[cast[uint8](c)]) shl 2
   result = result shr 2
 
-const str = "CATGN"
+const reverse_lookup* = "ACGTN"
 
 proc decode*(e: uint64, k: var string) {.inline.} =
   ## decode a string from a uint64 into k. the length
@@ -32,7 +51,7 @@ proc decode*(e: uint64, k: var string) {.inline.} =
     L = i
   while i > 0:
     base = int((e shr (i * 2  - 2)) and 3'u64)
-    k[L-i] = str[base]
+    k[L-i] = reverse_lookup[base]
     i -= 1
 
 proc reverse_complement*(encoded: uint64, L:int|uint64): uint64 {.inline.} =
@@ -196,20 +215,20 @@ when isMainModule:
   t = cpuTime()
   for e in encs:
     rc = e.reverse_complement_old(s.len)
-    if rc >= 65219000000000'u64:
+    if rc >= 69219000000000'u64:
       n.inc
   # old.add(rc)
-  echo "time:", cpuTime() - t, " n:", n
+  echo "time:", cpuTime() - t, " n:", n, " of ", ntimes
 
   echo "testing new reverse_complement"
   t = cpuTime()
   n = 0
   for i, e in encs:
     rc = e.reverse_complement(s.len)
-    if rc >= 65219000000000'u64:
+    if rc >= 69219000000000'u64:
       n.inc
   #doAssert old[i] == rc
-  echo "time:", cpuTime() - t, " n:", n
+  echo "time:", cpuTime() - t, " n:", n, " of ", ntimes
 
 
   block:
