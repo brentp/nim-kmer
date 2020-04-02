@@ -82,8 +82,8 @@ proc rencode*(k: string): kmer {.inline.} =
   let km1 = uint64(k.len - 1)
   for base in k:
     let c = lookup[cast[uint8](base)]
-    result[0] = (result[0] shl 1) or (1 xor (c and 1)) shl km1
-    result[1] = (result[1] shl 1) or (1 xor c shr 1) shl km1
+    result[0] = (result[0] shr 1) or (1 xor (c and 1)) shl km1
+    result[1] = (result[1] shr 1) or (1 xor c shr 1) shl km1
 
 type stranded* = tuple[enc:kmer, min_complement:uint8]
 
@@ -175,15 +175,23 @@ when isMainModule:
   e.decode(s)
   echo s
 
-  echo "add reverse 'T'"
-  e = k.encode()
-  e.reverse_add('T', k.len)
-  e.decode(s)
-  echo s
+  k = "CTCCAGCCGGACGCGGCCGGCAGCAGACGCA"
+  s.setLen(k.len)
+  var rc = k.rencode()
+  echo "add reverse 'A'*2"
+  rc.reverse_add('A', k.len)
+  rc.reverse_add('A', k.len)
+  rc.decode(s)
+  echo "rev:", s
+
+  if s != "TTTGCGTCTGCTGCCGGCCGCGTCCGGCTGG":
+    echo "error adding reverse base:"
+    echo "got ", s
+    quit(1)
 
   s.setLen(13)
-  echo "s:", k
+  #echo "s:", k
   for km in k.slide(13):
     km.enc.decode(s)
-    echo s, " ", km.min_complement
+    # echo s, " ", km.min_complement
 
