@@ -35,15 +35,18 @@ const lookup: array[256, uint64] = [
 const reverse_lookup* = "ACGTN"
 
 type kmer* = array[2, uint64]
+{.emit:" typedef __uint128_t uint128;" .}
 
-proc `<`*(f, r:kmer): bool {.inline.} =
-  return f[0] < r[0] or (f[0] == r[0] and f[1] < r[1])
+type
+  uint128*{.importc: "uint128".} = object
+    # Size missing https://github.com/nim-lang/Nim/issues/7674
+    do_not_use1, do_not_use2: uint64
 
-proc min*(f, r:kmer): kmer {.inline.} =
-  if f[0] < r[0]: return f
-  if r[0] < f[0]: return r
-  if f[1] <= r[1]: return f
-  return r
+proc `<`*(a:kmer, b:kmer): bool =
+ {.emit: "`result` = ((uint128)(`a`) < (uint128)(`b`));" .}
+
+proc min*(a:kmer, b:kmer): kmer =
+  {.emit: "`result` = ((uint128)(`a`) < (uint128)(`b`)) ? `a` : `b`;" .}
 
 template mask(k:int): uint64 =
   (1'u64 shl k) - 1
@@ -100,6 +103,7 @@ proc decode*(e: kmer, k: var string) {.inline.} =
   ## of k determines how much is decoded
   for l in 0..<k.len:
     k[k.len - 1 - l] = reverse_lookup[((e[1] shr l and 1) shl 1) or (e[0] shr l and 1)]
+
 
 iterator slide*(s:string, k: int): stranded {.inline.} =
   ## given a string (DNA seq) yield each possible kmer where
