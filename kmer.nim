@@ -108,15 +108,25 @@ proc decode*(e: kmer, k: var string) {.inline.} =
 iterator slide*(s:string, k: int): stranded {.inline.} =
   ## given a string (DNA seq) yield each possible kmer where
   ## the min of the foward and reverse complement is used.
-  var f = s[0..<k].encode()
-  var r = s[0..<k].rencode()
+  let pre = s[0..<k]
+  var f = pre.encode()
+  var r = pre.rencode()
   var base:char
   for i in k..s.high:
-    yield (min(f, r), cast[uint8](r < f))
+
+    if r < f:
+      yield (r, 1'u8)
+    else:
+      yield (f, 0'u8)
+    #yield (min(f, r), cast[uint8](r < f))
     base = s[i]
     f.forward_add(base, k)
     r.reverse_add(base, k)
-  yield (min(f, r), cast[uint8](r < f))
+  if r < f:
+    yield (r, 1'u8)
+  else:
+    yield (f, 0'u8)
+  #yield (min(f, r), cast[uint8](r < f))
 
 proc sum(m: seq[bool]): int {.inline.} =
   for v in m: result += v.int
@@ -157,6 +167,11 @@ proc reverse_complement*(encoded: uint64, L:int|uint64): uint64 {.inline.} =
   result = ((result shr 32'u64 and 0x00000000FFFFFFFF'u64) or (result and 0x00000000FFFFFFFF'u64) shl 32'u64);
   return (result shr (2 * (32 - L)));
 
+proc reverse_complement*(encoded: kmer, L:int|uint64): kmer {.inline.} =
+  ## fast reverse complement of encoded value
+  # from Zev: https://www.biostars.org/p/113640/#424280
+  result[1] = encoded[0].reverse_complement(L)
+  result[0] = encoded[1].reverse_complement(L)
 
 when isMainModule:
   import random
@@ -166,18 +181,25 @@ when isMainModule:
   var t = cpuTime()
 
   var k = "CTCCAGCCGGACGCGGCCGGCAGCAGACGCACTCCAGCCGGACGCGGCCGGCAGCAGACGCA"
+  echo "len:", k.len
   var s = k
   var e = k.encode()
+  var r = e.reverse_complement(k.len)
   e.decode(s)
+
+  var rs = k
+  r.decode(rs)
 
   echo k == s
 
-  echo k, " -> ", s
+  echo "k :", k, " -> ", s
+  echo "rc:", rs
 
   echo "add 'T'"
   e.forward_add('T', k.len)
   e.decode(s)
   echo s
+
 
   k = "CTCCAGCCGGACGCGGCCGGCAGCAGACGCA"
   s.setLen(k.len)
