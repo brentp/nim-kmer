@@ -31,6 +31,8 @@ const lookup: array[256, uint64] = [
   4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 ]
 
+const reverse_lookup* = "ACGTN"
+
 proc encode*(k: string): uint64 {.inline.} =
   ## encode a string into a uint64
   when not defined(danger):
@@ -40,7 +42,6 @@ proc encode*(k: string): uint64 {.inline.} =
     result = (result or lookup[cast[uint8](c)]) shl 2
   result = result shr 2
 
-const reverse_lookup* = "ACGTN"
 
 proc decode*(e: uint64, k: var string) {.inline.} =
   ## decode a string from a uint64 into k. the length
