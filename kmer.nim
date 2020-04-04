@@ -11,6 +11,23 @@
 #       1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 #       1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 3,
 #       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1]
+#
+
+import hashes
+
+proc hash*(key: uint64): Hash {.inline, noInit.} =
+  ##  invertible integer hash function
+  ##  this provides a fast hash function for kmers
+  ##  also see: https://nullprogram.com/blog/2018/07/31/ fors splitmix
+  var tmp = (not key) + (key shl 21)
+  tmp = tmp xor tmp shr 24
+  tmp = ((tmp + (tmp shl 3)) + (tmp shl 8))
+  tmp = tmp xor tmp shr 14
+  tmp = ((tmp + (tmp shl 2)) + (tmp shl 4))
+  tmp = tmp xor tmp shr 28
+  tmp = (tmp + (tmp shl 31))
+  result = Hash(tmp)
+
 
 const lookup: array[256, uint64] = [
   0'u64, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
