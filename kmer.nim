@@ -17,13 +17,13 @@ import hashes
 
 proc hash*(x:uint64): Hash {.inline, noInit.} =
   ## this overrides the default (non) hash function for uint64 in nim.
-  ## splitMix hash function by S Vigna: http://xoshiro.di.unimi.it/splitmix64.c
-  ##  also see: https://nullprogram.com/blog/2018/07/31/
-  var x = x xor (x shr 30'u64)
-  x = x * 0xbf58476d1ce4e5b9'u64
-  x = x xor (x shr 27)
-  x = x * 0x94d049bb133111eb'u64
-  result = Hash(x xor (x shr 31))
+  ## moremur hash from Pelle Evensen
+  ## http://mostlymangling.blogspot.com/2019/12/stronger-better-morer-moremur-better.html
+  var x = x xor (x shr 27)
+  x = x * 0x3C79AC492BA7B653'u64
+  x = x xor (x shr 33)
+  x = x * 0x1C69B3F74AC4AE35'u64
+  result = Hash(x xor (x shr 27))
 
 const lookup: array[256, uint64] = [
   0'u64, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
