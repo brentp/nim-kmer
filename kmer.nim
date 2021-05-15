@@ -15,6 +15,7 @@
 
 import hashes
 
+#[j
 proc hash*(x:uint64): Hash {.inline, noInit.} =
   ## this overrides the default (non) hash function for uint64 in nim.
   ## moremur hash from Pelle Evensen
@@ -24,24 +25,25 @@ proc hash*(x:uint64): Hash {.inline, noInit.} =
   x = x xor (x shr 33)
   x = x * 0x1C69B3F74AC4AE35'u64
   result = Hash(x xor (x shr 27))
+  ]#
 
 const lookup: array[256, uint64] = [
-  0'u64, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  3, 3, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  3, 3, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
-  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
+  0'u64, 1, 2, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 1,  0, 0, 0, 2,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  3, 3, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 1,  0, 0, 0, 2,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  3, 3, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,
+  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0
 ]
 
 const reverse_lookup* = "ACGTN"
@@ -101,6 +103,9 @@ proc mincode*(k: string): stranded {.inline.} =
   let r = f.reverse_complement(k.len)
   return (min(f, r), cast[uint8](r < f))
 
+proc sum(m: seq[bool]): int {.inline.} =
+  for v in m: result += v.int
+
 iterator slide*(s:string, k: int): stranded {.inline.} =
   ## given a string (DNA seq) yield each possible kmer where
   ## the min of the foward and reverse complement is used.
@@ -110,10 +115,10 @@ iterator slide*(s:string, k: int): stranded {.inline.} =
   for i in k..s.high:
     yield (min(f, r), cast[uint8](r < f))
     base = s[i]
+    #echo f,",", r
     f.forward_add(base, k)
     r.reverse_add(base, k)
   yield (min(f, r), cast[uint8](r < f))
-
 
 iterator slide_forward*(s:string, k: int): uint64 {.inline.} =
   ## given a string (DNA seq) yield each possible kmer where
@@ -125,13 +130,44 @@ iterator slide_forward*(s:string, k: int): uint64 {.inline.} =
     f.forward_add(base, k)
   yield f
 
+template combine(a:uint64, b:uint64, k:uint64):uint64 =
+  (a shl (2'u64 * k)) or b
 
-proc sum(m: seq[bool]): int {.inline.} =
-  for v in m: result += v.int
+iterator slide_space*(s:string, k: int, space:uint64): stranded {.inline.} =
+  ## take a boolean mask choosing which bases to extract. this is less
+  ## efficient than slide_forward, bt allows sparse kmers
+  doAssert k + k <= 31
+
+  var f1 = s[0..<k].encode()
+  var r1 = f1.reverse_complement(k)
+
+  var f2 = s[k.uint64+space ..< k.uint64+space+k.uint64].encode()
+  var r2 = f2.reverse_complement(k)
+  var ku = k.uint64
+
+  for i in k.uint64..(s.high.uint64 - k.uint64 - space):
+
+    var f = combine(f1, f2, ku)
+    var r = combine(r2, r1, ku)
+    #echo f,",", r
+
+    yield (min(f, r), cast[uint8](r < f))
+
+    f1.forward_add(s[i], k)
+    r1.reverse_add(s[i], k)
+
+    f2.forward_add(s[i+ku+space], k)
+    r2.reverse_add(s[i+ku+space], k)
+
+  var f = combine(f1, f2, ku)
+  var r = combine(r2, r1, ku)
+  yield (min(f, r), cast[uint8](r < f))
+
 
 iterator slide_forward_mask*(s:string, k: int, mask: seq[bool]): uint64 {.inline.} =
   ## take a boolean mask choosing which bases to extract. this is less
   ## efficient than slide_forward, bt allows sparse kmers
+  ## TODO: make this faster.
   assert k == sum(mask)
   var sequence = newStringOfCap(k)
   for i, v in mask:
@@ -143,7 +179,6 @@ iterator slide_forward_mask*(s:string, k: int, mask: seq[bool]): uint64 {.inline
     for i, v in mask:
       if v: f.forward_add(s[i + j], k)
     yield f
-
 
 iterator dists*(s: string, k:int): auto {.inline.} =
   ## yield each (min) encoded k-mer and its distance from the closest end of the read.
