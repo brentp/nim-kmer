@@ -136,32 +136,37 @@ template combine(a:uint64, b:uint64, k:uint64):uint64 =
 iterator slide_space*(s:string, k: int, space:uint64): stranded {.inline.} =
   ## take a boolean mask choosing which bases to extract. this is less
   ## efficient than slide_forward, bt allows sparse kmers
-  doAssert k + k <= 31
 
-  var f1 = s[0..<k].encode()
-  var r1 = f1.reverse_complement(k)
+  if space == 0:
+    for st in s.slide(k): yield st
+  else:
 
-  var f2 = s[k.uint64+space ..< k.uint64+space+k.uint64].encode()
-  var r2 = f2.reverse_complement(k)
-  var ku = k.uint64
+    doAssert k + k <= 31
 
-  for i in k.uint64..(s.high.uint64 - k.uint64 - space):
+    var f1 = s[0..<k].encode()
+    var r1 = f1.reverse_complement(k)
+
+    var f2 = s[k.uint64+space ..< k.uint64+space+k.uint64].encode()
+    var r2 = f2.reverse_complement(k)
+    let ku = k.uint64
+
+    for i in k.uint64..(s.high.uint64 - k.uint64 - space):
+
+      var f = combine(f1, f2, ku)
+      var r = combine(r2, r1, ku)
+      #echo f,",", r
+
+      yield (min(f, r), cast[uint8](r < f))
+
+      f1.forward_add(s[i], k)
+      r1.reverse_add(s[i], k)
+
+      f2.forward_add(s[i+ku+space], k)
+      r2.reverse_add(s[i+ku+space], k)
 
     var f = combine(f1, f2, ku)
     var r = combine(r2, r1, ku)
-    #echo f,",", r
-
     yield (min(f, r), cast[uint8](r < f))
-
-    f1.forward_add(s[i], k)
-    r1.reverse_add(s[i], k)
-
-    f2.forward_add(s[i+ku+space], k)
-    r2.reverse_add(s[i+ku+space], k)
-
-  var f = combine(f1, f2, ku)
-  var r = combine(r2, r1, ku)
-  yield (min(f, r), cast[uint8](r < f))
 
 
 iterator slide_forward_mask*(s:string, k: int, mask: seq[bool]): uint64 {.inline.} =
