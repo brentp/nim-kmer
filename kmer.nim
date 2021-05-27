@@ -139,8 +139,7 @@ iterator slide_space*(s:string, k: int, space:uint64): stranded {.inline.} =
 
   if space == 0:
     for st in s.slide(k): yield st
-  else:
-
+  elif k + k + space.int >= s.len:
     doAssert k + k <= 31
 
     var f1 = s[0..<k].encode()
