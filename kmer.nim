@@ -139,7 +139,7 @@ iterator slide_space*(s:string, k: int, space:uint64): stranded {.inline.} =
 
   if space == 0:
     for st in s.slide(k): yield st
-  elif k + k + space.int >= s.len:
+  elif k + k + space.int <= s.len:
     doAssert k + k <= 31
 
     var f1 = s[0..<k].encode()
@@ -354,3 +354,13 @@ when isMainModule:
         var lastS = S
 
     echo "slide time:",  cpuTime() - t
+
+
+
+  block:
+    var s = newString(9)
+    for i in 0..<s.len: s[i] = 'G'
+    echo "slide_space"
+
+    for k in s.slide_space(4, 2):
+      echo "slide:", k
