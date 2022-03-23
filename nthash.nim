@@ -125,6 +125,7 @@ when isMainModule:
   import random
   import strformat
   import sets
+  import times
 
   var x = "ACGTGACGTACGT"
 
@@ -134,6 +135,7 @@ when isMainModule:
   for k in x.nthash(5):
     echo k
 
+  var chars = {'A', 'C', 'T', 'G'}
   block:
      echo "strobemers"
      # make a random sequence
@@ -144,7 +146,6 @@ when isMainModule:
      ]#
 
      var s1 = newString(0)
-     var chars = {'A', 'C', 'T', 'G'}
      for i in 0..100: s1.add(sample(chars))
      var s2 = deepCopy(s1)
      echo "s1:", s1
@@ -182,3 +183,25 @@ when isMainModule:
       for k in strobemer_forward(str, 4, 5, 7):
         echo k
       echo "\nfrom:  ", str
+
+
+  when defined(danger):
+     var nreads = 10_000
+     var read_len = 5000
+     var reads = newSeq[string]()
+     for i in 0..<nreads:
+         var s = newStringOfCap(read_len)
+         for i in 0..read_len:
+             s.add(sample(chars))
+         reads.add(s)
+
+     var t = uint64.high
+     var t0 = cpuTime()
+
+     var ni = 0
+     for r in reads:
+       for k in strobemer_forward(r, 7, 12, 19):
+         t = t xor k
+         ni += 1
+
+     echo &"time to strober {nreads} reads each with {read_len} bases: {cpuTime() - t0:.2f} seconds with result: {t} and kmers:{ni}"
