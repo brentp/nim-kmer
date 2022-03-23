@@ -14,6 +14,8 @@
 #
 
 import hashes
+import strformat
+import std/bitops
 
 #[j
 proc hash*(x:uint64): Hash {.inline, noInit.} =
@@ -130,6 +132,52 @@ iterator slide_forward*(s:string, k: int): uint64 {.inline.} =
     f.forward_add(base, k)
   yield f
 
+import ./ringbuffer
+
+
+iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int): uint64 =
+    ## here, k is the `l` from the strobemer paper so the actual bases in the result is 2*k
+    ## n is not currently used.
+    var h = s[0..<k].encode()
+    var initialValues = newSeqUninitialized[uint64](wMax)
+    initialValues[0] = h
+    #echo "string:", s
+    #stdout.write("added: ", s[0..<k])
+    let prime:uint64 = (1 shl 20) - 1'u64
+    for i in 1..<wMax:
+        h.forward_add(s[k + i - 1], k)
+        #stdout.write( s[k+i-1])
+        initialValues[i] = h
+
+    #echo "initialValues:", initialValues
+    var buffer = newRingBuffer(initialValues)
+    assert buffer[wMax-1] == initialValues[^1]
+    for i in wMax..<s.high-k+3:
+        var h1 = buffer[0]
+        var h2m = int.high
+        var h2i = wMin
+        for j in wMin..<wMax:
+            # shen  : https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L196            
+            # sahlin: https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L334
+            # sahlin popcount: https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L335
+            let ht = countSetBits((h1 xor buffer[j]) and prime)
+            if ht < h2m:
+               h2m = ht
+               h2i = j
+            
+        #echo "h1:", h1, " h2:", buffer[h2i], " val:", (h1 shr 1) + uint64(float64(buffer[h2i]) / 3)
+        yield (h1 shr 1) + uint64(float64(buffer[h2i]) / 3)
+             
+        # break here when at end of read as it's preparing for next loop
+        # and we can yield the final value before this.
+        if k + i - 1 == len(s): break
+        var tmp = buffer[i-1]
+        tmp.forward_add(s[k + i - 1], k)
+        #stdout.write(s[k + i - 1])
+        buffer.add(tmp)
+    #stdout.write_line("")
+   
+
 template combine(a:uint64, b:uint64, k:uint64):uint64 =
   (a shl (2'u64 * k)) or b
 
@@ -168,6 +216,8 @@ iterator slide_space*(s:string, k: int, space:uint64): stranded {.inline.} =
     yield (min(f, r), cast[uint8](r < f))
 
 
+
+
 iterator slide_forward_mask*(s:string, k: int, mask: seq[bool]): uint64 {.inline.} =
   ## take a boolean mask choosing which bases to extract. this is less
   ## efficient than slide_forward, bt allows sparse kmers
@@ -197,6 +247,7 @@ when isMainModule:
   import random
   import times
   import strutils
+  import sets
 
   var t = cpuTime()
 
@@ -257,7 +308,7 @@ when isMainModule:
   echo cpuTime() - t
 
   echo "testing old reverse_complement"
-  let ntimes = 10_000_000
+  let ntimes = 200_000
   var n = 0
   var encs = newSeq[uint64](ntimes)
   for i in 0..<ntimes:
@@ -342,7 +393,7 @@ when isMainModule:
     var t = cpuTime()
 
     var lastS = 0'u64
-    for i in 0..600_000:
+    for i in 0..200_000:
       var S = 0'u64
       for k in s.slide(25):
         S += k.enc mod 15
@@ -364,3 +415,37 @@ when isMainModule:
 
     for k in s.slide_space(4, 2):
       echo "slide:", k
+
+
+  block:
+     echo "strobemers"
+     # make a random sequence
+     randomize(42)
+     var s1 = newString(0)
+     var chars = {'A', 'C', 'T', 'G'}
+     for i in 0..1000: s1.add(sample(chars))
+     var s2 = deepCopy(s1)
+     var nmuts = 0
+     for i in 0..s2.high:
+         if rand(1.0) < 0.1:
+            nmuts += 1
+            s2[i] = sample(chars - {s2[i]})
+     echo "nmuts:", nmuts
+     assert s2 != s1
+
+     echo ">", s1
+     var t = initSet[uint64]()
+     var n = 0
+
+     #for k in s1.slide_forward(10):
+     for k in strobemer_forward(s1, 5, 8, 13):
+         n.inc
+         t.incl(k)
+
+     var seen = 0
+     #for k in s2.slide_forward(10):
+     for k in strobemer_forward(s2, 5, 8, 13):
+       if k in t: seen += 1
+     echo &"seen:{seen} of:{n} -> {seen.float/n.float*100}%"
+     echo &"unique:{t.len} of:{n} -> {t.len.float/n.float*100}%"
+
