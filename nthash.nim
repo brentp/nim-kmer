@@ -1,6 +1,7 @@
 {.passC:"-mpopcnt".}
 
 import std/bitops
+import strformat
 
 const seedA:uint64 = 0x3c8bfbb395c60474'u64
 const seedC:uint64 = 0x3193c18562a02b4c'u64
@@ -75,6 +76,7 @@ iterator nthash_forward*(s:string, k:int): uint64 =
   yield f
 
 iterator nthash*(s:string, k:int): uint64 =
+  ## return the canonical hash of the string for the first k-mer
   var f = s[0..<k].ntf64(k)
   var r = s[0..<k].ntr64(k)
 
@@ -93,33 +95,39 @@ iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int): uint64 =
     var hashes = newSeqOfCap[uint64](s.len)
     hashes.add(h)
 
-    let q:uint64 = (1 shl 23) - 1'u64
+    let q:uint64 = (1 shl 20) - 1'u64
 
     # calculate all hashes and keep in memory. barf
     # TODO: update to use ring-buffer
     for i in 1..<s.len - k + 1:
         h.forward_nthash(s[i - 1], s[k + i - 1], k)
         hashes.add(h)
+    #echo "hashes:", hashes
 
     var h1i = wMax
     # subtracting 2 here so we get at least one shrunk value from inner loop.
-    for h1i in wMax..<hashes.len - wMax + 1:
-        var h1 = hashes[h1i - wMax]
-        var h2m = uint64.high
-        var h2i = h1i + wMin
-        for j in h2i..<min(h2i + k, hashes.high):
-            #echo "i:", h1i, " j:", j
-            #if i + j >= len(hashes): break
+    for h1i in 0..<s.len - k + 1 - wMin:
+        var h1 = hashes[h1i]
+        # starting index is simply wMin more than index of left kmer
+        var h2_start_i = h1i + wMin
+        var h2_best_i = -1
+        var h2_best_val = uint64.high
+        #echo &"h1i: {h1i} h1: {h1}"
+        for h2i in h2_start_i..min(h1i + wMax, hashes.high):
             # shen  : https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L196            
             # sahlin: https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L334
             # sahlin popcount: https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L335
             #let ht = countSetBits((h1 xor hashes[j]) and q).uint64
-            let ht = (h1 xor hashes[j]) and q
-            if ht < h2m:
-               h2m = ht
-               h2i = j
-            
-        yield (h1 shr 1) + uint64(float64(hashes[h2i]) / 3)
+            let ht = (h1 + hashes[h2i]) and q
+            #echo &"h2i: {h2i} ht: {ht}"
+            if ht < h2_best_val:
+               h2_best_val = ht
+               h2_best_i = h2i
+        #echo("EXIT EARLY")
+        #break
+        if h2_best_i == -1: break   
+        yield (h1 shr 1) + uint64(float64(hashes[h2_best_i]) / 3)
+        #yield uint64(float(h1) / 2) + uint64(float64(hashes[h2_best_i]) / 3)
              
 when isMainModule:
   import random
@@ -145,6 +153,7 @@ when isMainModule:
      var s2 = "TAAGAGATATACAAAAGAAAAATGTATGATACAGAACAGAAAAAATGTTCTGTGATAGTTCACATATTCTCCATGAGTCCATCACACACCGCACAAGCAGAGGCACTGACTCCTTTTGCTCCAGACACGTTTGCAACAAGCAAGCTTGTATTTGCAGGTGCACCCTCAGAGTGTGGGTGGATTTGTGGATGTCTAAGATATTAAAGATAATTTCTCTAGAAAAAGATTCAGTCCATTACAAACTCAGGTTTTCTGCTCAGCCTCAGCTCTGATGCAAACTCTCTGTGCGTTTCCACTCAAGTATTTTGCCGAGGCATGGCTGACAACATGAAAGCCATAGTGCTTTTCTGTGCCATGAGTGGCAAAATCCTATCTTTCCAAAGAAGTGTTTTAGCTTTCGCCAGTACATATGAAATTGTGGCAGACTGACTTACTAGTTTGCAAGTAGCTAAAATTTCAGCCCTTCACAATTCCTTACAGAGGTTTGTTTTGAGGAAAGAATCTCAACTTTTCCAACCCCTCTTTCTTTCACATATGTGTGTCCTGTTACATTCACCTCAACAAAACAAATTTGTAGAATTACACCTTTTACCTACACCACACTCCTTCATTTTTATTTGGGGTTTGATGGAGTTCTAAATTCTAGATAATTAAAAGTTGTCCATGACTAGGAATGTACGTAAAAACCTGGGAAGAATTTATTTAAACACTTATATAATCAAAACGTTGAGATTCTTTCCCTCCAAAACAAACTCCTCTGTAAGGAATTGTGAAAGGGCTGAAATTTTAGCCTACTTGCAAACTAGTAAGTCAGTCTGCCACAATTTCATATATGTACTGGCAGAAAACAAACACTCTTGGCCGAGACATAGGATTTTACTCCTCATGGCACAGAAAGCACTATGAGCTTCATGTTTGTGTCAGCCCTTCTTACTCAAATCCTACAGAATGACATAAAATGGTTCCTGTGGAAGTTTTGCACGCAGAGGGTTTGCATCAGAGCTGAGGAACCCTGAGTTTAGAAAACCTTGAGTTTCTGTAATGACTGGGAAGCAAATCTGTCTTAATCTTTTCCTAGAGGGAAACATTATCTTTATCACACTAGGCAGCCCACAAATCTACCCTTTACTCTGAGGGACACACCATACCTTCTAAGCTGCTTGTTATACAAACATCCATAAGAGATAATCTGGAACAAAAGGAATCAGTGCCTCTGCTTGTGCAGTAATATGATAGACTCATGGAGAACTATCTTCCTCAAATGCTCCTGCCTGTGAACTATCACAGAACACATTTTCTGTTCTGTATCATACATTTTCACTTCTTTTGTAGCAATACGTAACTGAACGAAGTACATT"
      ]#
 
+     #[
      var s1 = newString(0)
      for i in 0..100: s1.add(sample(chars))
      var s2 = deepCopy(s1)
@@ -155,22 +164,30 @@ when isMainModule:
             nmuts += 1
             s2[i] = sample(chars - {s2[i]})
      echo "nmuts:", nmuts
-     assert s2 != s1
      echo "s2:", s2
+     ]#
+
+     var s1 = "GTGGTTCTGGAAAGCACCTAGACGTTGACGACAGCTGAGGCCTGCAGCATACTCAGGGTCCAACTCTCCCCCTCACCTAAGAGTTCTGGCACCTCGCCCTA"
+     var s2 = "GTGGTTCTGGAAAGCGCCTAGACGTTGACGCCAGCTGAGGCCTGAAGCATATTCAGGGTCCAACTCTCGCCCTCACCTAAGAGTGCTGGCACCTCGCCCTA"
+
+     assert s2 != s1
+
 
      #echo ">", s1
      var t = initHashSet[uint64]()
      var n = 0
 
      #for k in s1.slide_forward(10):
-     for k in strobemer_forward(s1, 4, 5, 8):
+     for k in strobemer_forward(s1, 3, 3, 7):
+         echo k, ": ", n
          n.inc
          t.incl(k)
 
      var seen = 0
      #for k in s2.slide_forward(10):
-     for k in strobemer_forward(s2, 4, 5, 8):
+     for k in strobemer_forward(s2, 3, 3, 7):
        if k in t: seen += 1
+     echo &"s1.len:{s1.len} s2.len:{s2.len}"
      echo &"seen:{seen} of:{n} -> {seen.float/n.float*100:.1f}% (higher is better)"
      echo &"unique:{t.len} of:{n} -> {t.len.float/n.float*100:.1f}% (higher is better)"
 
@@ -186,6 +203,7 @@ when isMainModule:
 
 
   when defined(danger):
+     echo "OK"
      var nreads = 10_000
      var read_len = 5000
      var reads = newSeq[string]()
