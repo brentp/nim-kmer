@@ -86,14 +86,26 @@ iterator nthash*(s:string, k:int): uint64 =
     r.reverse_nthash(s[i - k], s[i], k)
   yield min(f, r)
 
-#import ./ringbuffer
+import hashes
+
+#proc hash*(x:uint64): Hash {.inline, noInit.} = hashWangYi1(x)
+
+proc combine(h1:uint64, h2:uint64): uint64 {.inline.} =
+   #h1 xor (h2 + 0x9e3779b9'u64 + (h1 shl 6) + (h1 shr 2))
+
+   #let h = (1009 * 9176 + h1)
+   #return h * 9176 + h2
+
+   # BEST:
+   h1 xor (h2 + 17316035218449499591'u64)
+    
 
 iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int): uint64 =
     ## here, k is the `l` from the strobemer paper so the actual bases in the result is 2*k
     ## n is not currently used.
     var h = s[0..<k].ntf64(k)
     var hashes = newSeqOfCap[uint64](s.len)
-    hashes.add(h)
+    hashes.add(uint64(hash(h)))
 
     let q:uint64 = (1 shl 20) - 1'u64
 
@@ -101,11 +113,13 @@ iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int): uint64 =
     # TODO: update to use ring-buffer
     for i in 1..<s.len - k + 1:
         h.forward_nthash(s[i - 1], s[k + i - 1], k)
-        hashes.add(h)
-    #echo "hashes:", hashes
+        # NOTE: we are re-hashing the nthash value here
+        # this improves uniqueness (and matching) for short (3) k-mers
+        # probably not necessary for longer kmers when using nthash.
+        hashes.add(uint64(hash(h)))
 
     var h1i = wMax
-    # subtracting 2 here so we get at least one shrunk value from inner loop.
+
     for h1i in 0..<s.len - k + 1 - wMin:
         var h1 = hashes[h1i]
         # starting index is simply wMin more than index of left kmer
@@ -118,16 +132,15 @@ iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int): uint64 =
             # sahlin: https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L334
             # sahlin popcount: https://github.com/ksahlin/strobemers/blob/main/randstrobe_implementations/src/index.cpp#L335
             #let ht = countSetBits((h1 xor hashes[j]) and q).uint64
-            let ht = (h1 + hashes[h2i]) and q
+            #let ht = (h1 + hashes[h2i]) and q
+            #let ht = ((h1 shl 1) + h1 + hashes[h2i]) * 31
+            let ht = combine(h1, hashes[h2i])
             #echo &"h2i: {h2i} ht: {ht}"
             if ht < h2_best_val:
                h2_best_val = ht
                h2_best_i = h2i
-        #echo("EXIT EARLY")
-        #break
         if h2_best_i == -1: break   
-        yield (h1 shr 1) + uint64(float64(hashes[h2_best_i]) / 3)
-        #yield uint64(float(h1) / 2) + uint64(float64(hashes[h2_best_i]) / 3)
+        yield h2_best_val
              
 when isMainModule:
   import random
@@ -179,7 +192,6 @@ when isMainModule:
 
      #for k in s1.slide_forward(10):
      for k in strobemer_forward(s1, 3, 3, 7):
-         echo k, ": ", n
          n.inc
          t.incl(k)
 
@@ -192,7 +204,7 @@ when isMainModule:
      echo &"unique:{t.len} of:{n} -> {t.len.float/n.float*100:.1f}% (higher is better)"
 
 
-  if false:
+  if true:
     for str in ["ACGTCGGCGCTTAGCTAGACCACGCTGCACGTC",
                 "ACGTCGTCGCTTAGCTAGACCACGCTGCACGTC"]:
      
