@@ -100,7 +100,7 @@ proc combine(h1:uint64, h2:uint64): uint64 {.inline.} =
    h1 xor (h2 + 17316035218449499591'u64)
     
 
-iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int): uint64 =
+iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int, rehash:bool=false): uint64 =
     ## here, k is the `l` from the strobemer paper so the actual bases in the result is 2*k
     ## n is not currently used.
     var h = s[0..<k].ntf64(k)
@@ -116,7 +116,7 @@ iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int): uint64 =
         # NOTE: we are re-hashing the nthash value here
         # this improves uniqueness (and matching) for short (3) k-mers
         # probably not necessary for longer kmers when using nthash.
-        hashes.add(uint64(hash(h)))
+        hashes.add(if rehash: uint64(hash(h)) else: h)
 
     var h1i = wMax
 
@@ -147,9 +147,22 @@ when isMainModule:
   import strformat
   import sets
   import times
+  import unittest
+
+
+  # copied test from will-row/nthash, but modified that code to use only forward kmers
+  # so expected here is derived from that to verify that we get same result
+  suite "nthash":
+    test "test hash":
+        var s = "ACTGC"
+        var expected = [13284814272337675038'u64, 13031072267840456376'u64, 15321980342890888284'u64]
+        var i = 0
+        for h in s.nthash_forward(3):
+            check h == expected[i]
+            i.inc
+
 
   var x = "ACGTGACGTACGT"
-
   for k in x.nthash_forward(5):
     echo k
   echo ""
