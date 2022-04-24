@@ -2,7 +2,6 @@
 
 import std/bitops
 import strformat
-import ./kmer
 
 const seedA:uint64 = 0x3c8bfbb395c60474'u64
 const seedC:uint64 = 0x3193c18562a02b4c'u64
@@ -110,6 +109,9 @@ type Strobemer* = object
 
 proc newStrobemer*(s:string, k:int, wMin:int, wMax:int, rehash:bool=false): Strobemer =
   result = Strobemer(s: s, k:k, wMin:wMin, wMax:wMax, rehash:rehash)
+
+proc set_read*(s: var Strobemer, r:string) =
+    s.s = r
 
 iterator items*(st:Strobemer): uint64 =
     let k = st.k

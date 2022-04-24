@@ -17,10 +17,16 @@
 import hashes
 import strformat
 import std/bitops
+import ./kmerpkg/nthash
+export Strobemer, newStrobemer, strobemer_forward, nthash, nthash_forward
 
 type ForwardKmerIterator* = concept c
     for kmer in c:
         kmer is uint64
+
+    type r = string
+    c.set_read(r)
+
 
 #[j
 proc hash*(x:uint64): Hash {.inline, noInit.} =
