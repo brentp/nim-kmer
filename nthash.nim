@@ -2,6 +2,7 @@
 
 import std/bitops
 import strformat
+import ./kmer
 
 const seedA:uint64 = 0x3c8bfbb395c60474'u64
 const seedC:uint64 = 0x3193c18562a02b4c'u64
@@ -100,12 +101,27 @@ proc combine(h1:uint64, h2:uint64): uint64 {.inline.} =
    h1 xor (h2 + 17316035218449499591'u64)
     
 
-iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int, rehash:bool=false): uint64 =
+type Strobemer* = object
+  s:string
+  k:int
+  wMin: int
+  wMax: int
+  rehash:bool
+
+proc newStrobemer*(s:string, k:int, wMin:int, wMax:int, rehash:bool=false): Strobemer =
+  result = Strobemer(s: s, k:k, wMin:wMin, wMax:wMax, rehash:rehash)
+
+iterator items*(st:Strobemer): uint64 =
+    let k = st.k
+    let wMin = st.wMin
+    let wMax = st.wMax
+    let s = st.s
+
     ## here, k is the `l` from the strobemer paper so the actual bases in the result is 2*k
     ## n is not currently used.
     var h = s[0..<k].ntf64(k)
     var hashes = newSeqOfCap[uint64](s.len)
-    hashes.add(uint64(hash(h)))
+    hashes.add(if st.rehash: uint64(hash(h)) else: h)
 
     let q:uint64 = (1 shl 20) - 1'u64
 
@@ -116,7 +132,7 @@ iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int, rehash:bool=fal
         # NOTE: we are re-hashing the nthash value here
         # this improves uniqueness (and matching) for short (3) k-mers
         # probably not necessary for longer kmers when using nthash.
-        hashes.add(if rehash: uint64(hash(h)) else: h)
+        hashes.add(if st.rehash: uint64(hash(h)) else: h)
 
     var h1i = wMax
 
@@ -141,6 +157,10 @@ iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int, rehash:bool=fal
                h2_best_i = h2i
         if h2_best_i == -1: break   
         yield h2_best_val
+
+iterator strobemer_forward*(s:string, k:int, wMin:int, wMax:int, rehash:bool=false): uint64 =
+    let s = newStrobemer(s, k, wMin, wMax, rehash=rehash)
+    for k in s: yield k
              
 when isMainModule:
   import random
@@ -248,3 +268,23 @@ when isMainModule:
          ni += 1
 
      echo &"time to strober {nreads} reads each with {read_len} bases: {cpuTime() - t0:.2f} seconds with result: {t} and kmers:{ni}"
+
+  block:
+     echo "strobemers"
+     # make a random sequence
+     randomize(42)
+     var s1 = newString(0)
+     var chars = {'A', 'C', 'T', 'G'}
+     for i in 0..1000: s1.add(sample(chars))
+     var s2 = deepCopy(s1)
+     var nmuts = 0
+     for i in 0..s2.high:
+         if rand(1.0) < 0.1:
+            nmuts += 1
+            s2[i] = sample(chars - {s2[i]})
+     echo "nmuts:", nmuts
+     assert s2 != s1
+
+     echo ">", s1
+     var t = initSet[uint64]()
+     var n = 0
